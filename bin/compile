@@ -1,25 +1,36 @@
 #!/bin/bash
 
-PRINCE_VERSION="12.5"
-echo "-----> Installing PrinceXML $PRINCE_VERSION"
-[ -d .downloads ] || mkdir .downloads
-(cd .downloads; [ -d "prince-$PRINCE_VERSION-linux-amd64-static" ] ||
-  curl -s https://www.princexml.com/download/prince-$PRINCE_VERSION-linux-generic-x86_64.tar.gz | tar xzf -)
-
 # https://devcenter.heroku.com/articles/buildpack-api#bin-compile
+BUILD_DIR=$1
+CACHE_DIR=$2
 ENV_DIR=$3
 LICENSE=${ENV_DIR}/PRINCE_LICENSE
+PRINCE_VERSION="12.5"
+PRINCE_FILE_NAME="prince-$PRINCE_VERSION-linux-generic-x86_64"
+
+echo "-----> Installing PrinceXML $PRINCE_VERSION"
+
+[ -d ${CACHE_DIR} ] || mkdir $CACHE_DIR
+
+if [ -d "$CACHE_DIR/$PRINCE_FILE_NAME" ]; then
+  echo "       Using cached package"
+else
+  echo "       Fetching package"
+  (cd $CACHE_DIR &&
+  curl -s https://www.princexml.com/download/$PRINCE_FILE_NAME.tar.gz | tar xzf -)
+fi
+
 
 if [ -f ${LICENSE} ]; then
   echo "       Configuring license file"
   echo "       Adding license to prince"
-  cp ${LICENSE} ./.downloads/prince-$PRINCE_VERSION-linux-generic-x86_64/lib/prince/license/license.dat
+  cp ${LICENSE} $CACHE_DIR/$PRINCE_FILE_NAME/lib/prince/license/license.dat
 else
   echo "       No license found"
 fi
 
-echo $1 | ./.downloads/prince-$PRINCE_VERSION-linux-generic-x86_64/install.sh
-cat >$1/bin/prince <<EOF
+echo $BUILD_DIR | $CACHE_DIR/$PRINCE_FILE_NAME/install.sh
+cat >$BUILD_DIR/bin/prince <<EOF
 #!/bin/sh
 exec /app/lib/prince/bin/prince --prefix="/app/lib/prince" "\$@"
 EOF
